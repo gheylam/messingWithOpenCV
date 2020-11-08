@@ -4,3 +4,6 @@
 
 #Ignore xml files generated from code
 *.xml
+
+#Ignore all meta txt files generated from code
+*.txt
