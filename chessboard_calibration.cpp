@@ -84,5 +84,79 @@ int main(int argc, char* argv[]){
     if((cv::waitKey(30) & 255) == 27)
       return -1;
   }
-}
   //end collection while loop
+  
+  cv::destroyWindow("Calibration");
+  cout << "\n\n*** CALIBRATING THE CAMERA...\n" << endl;
+
+  //Calibrating the camera!
+  cv::Mat intrinsic_matrix, distortion_coeffs;
+  double err = cv::calibrateCamera(
+				   object_points,
+				   image_points,
+				   image_size,
+				   intrinsic_matrix,
+				   distortion_coeffs,
+				   cv::noArray(),
+				   cv::noArray(),
+				   cv::CALIB_ZERO_TANGENT_DIST
+				   );
+
+  //saving the intrinsics and distortions
+  cout << "***DONE!\n\nReprojection Error is " << err <<
+    "\nStoring Intrinsics.xml and Distortions.xml files\n\n";
+  cv::FileStorage fs("intrinsics.xml", cv::FileStorage::WRITE);
+
+  fs << "image_width" << image_size.width << "image_height" << image_size.height
+     << "camera_matrix" << intrinsic_matrix << "distortion_coefficients" << distortion_coeffs;
+  fs.release();
+
+  //Loading the intrinsics back in
+  fs.open("intrinsics.xml", cv::FileStorage::READ);
+  cout << "\nimage width: " << (int)fs["image_width"];
+  cout << "\nimage height: " << (int)fs["image_height"];
+
+  cv::Mat intrinsic_matrix_loaded, distortion_coeffs_loaded;
+  fs["camera_matrix"] >> intrinsic_matrix_loaded;
+  fs["distortion_coefficients"] >> distortion_coeffs_loaded;
+  cout << "\nintrinsics matrix: " << intrinsic_matrix_loaded;
+  cout << "\ndistortion coefficients: " << distortion_coeffs_loaded << endl;
+
+  //Build the undistort map which we will use for all
+  //subsequent frames
+
+  cv::Mat map1, map2;
+  cv::initUndistortRectifyMap(
+			      intrinsic_matrix_loaded,
+			      distortion_coeffs_loaded,
+			      cv::Mat(),
+			      intrinsic_matrix_loaded,
+			      image_size,
+			      CV_16SC2,
+			      map1,
+			      map2
+			      );
+  //Jusst run the camera to the screen, now showing the raw and the
+  //undistorted image
+  for(;;){
+    cv::Mat image, image0;
+    capture >> image0;
+    if(image0.empty()){
+      cout << "Error reading images from webcam" << endl;
+      break;
+    }
+    cv::remap(
+	      image0,
+	      image,
+	      map1,
+	      map2,
+	      cv::INTER_LINEAR,
+	      cv::BORDER_CONSTANT,
+	      cv::Scalar()
+	      );
+    cv::imshow("Undistorted", image);
+    if((cv::waitKey(30) && 255) == 27) break;
+  }
+  return 0;
+}
+  
